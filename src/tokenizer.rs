@@ -652,29 +652,36 @@ impl<'a> Tokenizer<'a> {
         let mut s = String::new();
         chars.next(); // consume the opening quote
 
-        // slash escaping is specific to MySQL dialect
-        let mut is_escaped = false;
         while let Some(&ch) = chars.peek() {
             match ch {
                 '\'' => {
                     chars.next(); // consume
-                    if is_escaped {
-                        s.push(ch);
-                        is_escaped = false;
-                    } else if chars.peek().map(|c| *c == '\'').unwrap_or(false) {
-                        s.push(ch);
+                    let escaped_quote = chars.peek().map(|c| *c == '\'').unwrap_or(false);
+                    if escaped_quote {
+                        s.push('\'');
                         chars.next();
                     } else {
                         return Ok(s);
                     }
                 }
                 '\\' => {
+                    chars.next(); // consume
                     if dialect_of!(self is MySqlDialect) {
-                        is_escaped = !is_escaped;
+                        match chars.peek() {
+                            None => break, // did not expect EOF
+                            Some(ch2) => {
+                                if ch2 == &'\'' || ch2 == &'\\' {
+                                    s.push(*ch2); // push the ch2
+                                    chars.next(); // consume ch2
+                                                  // this ends up deleting the first \
+                                } else {
+                                    s.push(ch);
+                                }
+                            }
+                        }
                     } else {
                         s.push(ch);
                     }
-                    chars.next();
                 }
                 _ => {
                     chars.next(); // consume

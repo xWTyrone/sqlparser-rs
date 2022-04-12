@@ -366,6 +366,19 @@ fn parse_escaped_string() {
         }
         _ => unreachable!(),
     }
+
+    let sql = r#"SELECT 'firstname lastname\ncompany\nvat_number\naddress1\naddress2\npostcode city\nCountry:name\nphone'"#;
+
+    let projection = mysql().verified_only_select(sql).projection;
+    let item = projection.get(0).unwrap();
+
+    match &item {
+        SelectItem::UnnamedExpr(Expr::Value(value)) => {
+            assert_eq!(*value,
+                       Value::SingleQuotedString(r#"firstname lastname\ncompany\nvat_number\naddress1\naddress2\npostcode city\nCountry:name\nphone"#.to_string()));
+        }
+        _ => unreachable!(),
+    }
 }
 
 #[test]
